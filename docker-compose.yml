@@ -1,0 +1,51 @@
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────
+  mcp-commands-db:
+    image: postgres:16-alpine
+    container_name: mcp-commands-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mcp_commands
+      POSTGRES_USER: mcp_commands
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcp_commands_secret}
+    volumes:
+      - mcp-commands-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp_commands -d mcp_commands"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcp-commands-net
+
+  # ─────────────────────────────────────────────
+  # MCP Commands Server
+  # ─────────────────────────────────────────────
+  mcp-commands-server:
+    container_name: mcp-commands-server
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mcp-commands-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mcp_commands:${POSTGRES_PASSWORD:-mcp_commands_secret}@mcp-commands-db:5432/mcp_commands
+      MCP_TRANSPORT: sse
+      MCP_PORT: 8000
+    ports:
+      - "8000:8000"
+    networks:
+      - mcp-commands-net
+
+volumes:
+  mcp-commands-db-data:
+    name: mcp-commands-db-data
+
+networks:
+  mcp-commands-net:
+    name: mcp-commands-net
