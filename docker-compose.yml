@@ -13,8 +13,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcp_commands_secret}
     volumes:
       - ./mcp-commands-db-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"  # Not exposed externally; accessed via Docker network
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U mcp_commands -d mcp_commands" ]
       interval: 10s
