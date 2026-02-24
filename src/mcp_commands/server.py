@@ -27,8 +27,6 @@ mcp = FastMCP(
         "MCP server for tracking AI command usage. "
         "Use log_command to record commands used, and the other tools to query history & stats."
     ),
-    host=_host,
-    port=_port,
 )
 
 
@@ -193,7 +191,10 @@ async def api_live(request: Request) -> StreamingResponse:
 # ─────────────────────────────────────────────
 
 def main():
-    mcp.run(transport=_transport)
+    if _transport == "sse":
+        mcp.run(transport="sse", host=_host, port=_port)
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
