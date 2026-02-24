@@ -2,29 +2,77 @@
 
 MCP server สำหรับติดตามการใช้งาน AI commands
 
-เก็บข้อมูลว่าใช้ command อะไรบ้าง เมื่อไหร่ และบริบทใดบ้าง โดยใช้ SQLite เป็น storage
+เก็บข้อมูลว่าใช้ command อะไรบ้าง เมื่อไหร่ และบริบทใดบ้าง โดยใช้ PostgreSQL เป็น storage
 
-## ติดตั้ง
+## Architecture
+
+```
+Private Server (Docker Compose)
+├── mcp-commands-db      ← PostgreSQL 16
+└── mcp-commands-server  ← SSE mode, port 8000
+
+Claude Code (ทุก machine)
+└── url: "http://your-server:8000/sse"   ← ไม่ต้อง install อะไรเพิ่ม
+```
+
+ไม่ต้องแยก server กับ client — codebase เดียวรองรับทั้งสองโหมดผ่าน `MCP_TRANSPORT`
+
+---
+
+## Option A: Central Server (แนะนำ)
+
+### Deploy บน private server
 
 ```bash
-cd ~/Desktop/mcp_commands
-uv sync
+git clone https://github.com/PuemMTH/mcp-commands
+cd mcp-commands
+cp .env.example .env          # แก้ POSTGRES_PASSWORD
+docker compose up -d
 ```
 
-## โครงสร้าง
+### เพิ่มใน Claude Code (~/.claude.json) — ทุก machine
 
-```
-mcp_commands/
-├── src/
-│   └── mcp_commands/
-│       ├── __init__.py
-│       ├── server.py     # MCP server & tools
-│       └── storage.py    # SQLite storage layer
-├── pyproject.toml
-└── README.md
+```json
+{
+  "mcpServers": {
+    "mcp-commands": {
+      "url": "http://your-server:8000/sse"
+    }
+  }
+}
 ```
 
-**Database:** `~/.local/share/mcp_commands/commands.db`
+ข้อมูลทุก session เก็บรวมใน Postgres เดียวกัน
+
+---
+
+## Option B: รัน Local ด้วย uvx
+
+สำหรับคนที่อยากรัน instance ของตัวเองแบบ stdio (ต้องมี PostgreSQL อยู่แล้ว)
+
+```bash
+# ตั้ง DATABASE_URL ให้ชี้ไป Postgres ของตัวเอง
+DATABASE_URL=postgresql://user:pass@localhost:5432/mcp_commands \
+  uvx --from git+https://github.com/PuemMTH/mcp-commands mcp-commands
+```
+
+เพิ่มใน Claude Code (~/.claude.json):
+
+```json
+{
+  "mcpServers": {
+    "mcp-commands": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/PuemMTH/mcp-commands", "mcp-commands"],
+      "env": {
+        "DATABASE_URL": "postgresql://user:pass@localhost:5432/mcp_commands"
+      }
+    }
+  }
+}
+```
+
+---
 
 ## MCP Tools
 
@@ -35,20 +83,6 @@ mcp_commands/
 | `get_stats_tool` | สถิติสรุปการใช้งาน |
 | `search_commands_tool` | ค้นหา command ในประวัติ |
 | `delete_command_tool` | ลบ record ด้วย id |
-
-## เพิ่มใน Claude Code (~/.claude.json)
-
-```json
-{
-  "mcpServers": {
-    "mcp-commands": {
-      "command": "/home/puem/Desktop/mcp_commands/.venv/bin/python",
-      "args": ["-m", "mcp_commands.server"],
-      "cwd": "/home/puem/Desktop/mcp_commands"
-    }
-  }
-}
-```
 
 ## ตัวอย่างการใช้งาน
 
@@ -62,6 +96,14 @@ get_stats_tool()
 search_commands_tool(query="git")
 ```
 
+## Environment Variables
+
+| Variable | Default | คำอธิบาย |
+|----------|---------|----------|
+| `DATABASE_URL` | `postgresql://mcp_commands:mcp_commands@localhost:5432/mcp_commands` | PostgreSQL DSN |
+| `MCP_TRANSPORT` | `stdio` | `stdio` หรือ `sse` |
+| `MCP_PORT` | `8000` | Port สำหรับ SSE mode |
+
 ## Categories แนะนำ
 
 | Category | คำอธิบาย |
@@ -71,3 +113,4 @@ search_commands_tool(query="git")
 | `research` | research tools |
 | `oracle` | oracle commands |
 | `code` | coding tools |
+| `skill` | Claude Code skills |
