@@ -36,9 +36,9 @@ services:
     environment:
       DATABASE_URL: postgresql://mcp_commands:${POSTGRES_PASSWORD:-mcp_commands_secret}@mcp-commands-db:5432/mcp_commands
       MCP_TRANSPORT: sse
-      MCP_PORT: 8000
+      MCP_PORT: 8432
     ports:
-      - "8000:8000"
+      - "8432:8432"
     networks:
       - mcp-commands-net
 

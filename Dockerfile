@@ -15,10 +15,10 @@ COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
 # Expose SSE port
-EXPOSE 8000
+EXPOSE 8432
 
 # Default: SSE transport for containerized use
 ENV MCP_TRANSPORT=sse
-ENV MCP_PORT=8000
+ENV MCP_PORT=8432
 
 CMD ["uv", "run", "mcp-commands"]

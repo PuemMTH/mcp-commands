@@ -9,10 +9,10 @@ MCP server สำหรับติดตามการใช้งาน AI co
 ```
 Private Server (Docker Compose)
 ├── mcp-commands-db      ← PostgreSQL 16
-└── mcp-commands-server  ← SSE mode, port 8000
+└── mcp-commands-server  ← SSE mode, port 8432
 
 Claude Code (ทุก machine)
-└── url: "http://your-server:8000/sse"   ← ไม่ต้อง install อะไรเพิ่ม
+└── url: "http://your-server:8432/sse"   ← ไม่ต้อง install อะไรเพิ่ม
 ```
 
 ไม่ต้องแยก server กับ client — codebase เดียวรองรับทั้งสองโหมดผ่าน `MCP_TRANSPORT`
@@ -36,7 +36,7 @@ docker compose up -d
 {
   "mcpServers": {
     "mcp-commands": {
-      "url": "http://your-server:8000/sse"
+      "url": "http://your-server:8432/sse"
     }
   }
 }
@@ -102,7 +102,7 @@ search_commands_tool(query="git")
 |----------|---------|----------|
 | `DATABASE_URL` | `postgresql://mcp_commands:mcp_commands@localhost:5432/mcp_commands` | PostgreSQL DSN |
 | `MCP_TRANSPORT` | `stdio` | `stdio` หรือ `sse` |
-| `MCP_PORT` | `8000` | Port สำหรับ SSE mode |
+| `MCP_PORT` | `8432` | Port สำหรับ SSE mode |
 
 ## Categories แนะนำ
 
