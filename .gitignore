@@ -11,3 +11,6 @@ wheels/
 
 # Environment secrets
 .env
+
+# PostgreSQL bind-mount data directory
+mcp-commands-db-data/

@@ -14,12 +14,18 @@ from mcp_commands.storage import (
     delete_command,
 )
 
+_transport = os.getenv("MCP_TRANSPORT", "stdio")
+_host = "0.0.0.0" if _transport == "sse" else "127.0.0.1"
+_port = int(os.getenv("MCP_PORT", "8000"))
+
 mcp = FastMCP(
     name="mcp-commands",
     instructions=(
         "MCP server for tracking AI command usage. "
         "Use log_command to record commands used, and the other tools to query history & stats."
     ),
+    host=_host,
+    port=_port,
 )
 
 
@@ -127,11 +133,7 @@ def delete_command_tool(row_id: int) -> str:
 # ─────────────────────────────────────────────
 
 def main():
-    transport = os.getenv("MCP_TRANSPORT", "stdio")
-    if transport == "sse":
-        mcp.run(transport="sse", host="0.0.0.0", port=int(os.getenv("MCP_PORT", "8000")))
-    else:
-        mcp.run(transport="stdio")
+    mcp.run(transport=_transport)
 
 
 if __name__ == "__main__":
