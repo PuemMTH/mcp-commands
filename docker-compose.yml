@@ -35,7 +35,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://mcp_commands:${POSTGRES_PASSWORD:-mcp_commands_secret}@mcp-commands-db:5432/mcp_commands
-      MCP_TRANSPORT: sse
+      MCP_TRANSPORT: streamable-http
       MCP_PORT: 8432
     ports:
       - "8432:8432"

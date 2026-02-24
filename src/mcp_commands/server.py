@@ -18,7 +18,7 @@ from mcp_commands.storage import (
 )
 
 _transport = os.getenv("MCP_TRANSPORT", "stdio")
-_host = "0.0.0.0" if _transport == "sse" else "127.0.0.1"
+_host = "0.0.0.0" if _transport in ("sse", "streamable-http") else "127.0.0.1"
 _port = int(os.getenv("MCP_PORT", "8000"))
 
 mcp = FastMCP(

@@ -17,8 +17,8 @@ RUN uv sync --frozen --no-dev
 # Expose SSE port
 EXPOSE 8432
 
-# Default: SSE transport for containerized use
-ENV MCP_TRANSPORT=sse
+# Default: Streamable HTTP transport for containerized use
+ENV MCP_TRANSPORT=streamable-http
 ENV MCP_PORT=8432
 
 CMD ["uv", "run", "mcp-commands"]
