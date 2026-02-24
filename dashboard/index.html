@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP Commands — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #7d8590; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d29922; --red: #f85149;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg); color: var(--text);
+    padding: 20px; min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header h1 span { color: var(--accent); }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); animation: pulse 2s infinite;
+  }
+  .status-dot.offline { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* Stats cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+  }
+  .card-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
+  .card-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .card-value.accent { color: var(--accent); }
+  .card-value.green { color: var(--green); }
+  .card-value.orange { color: var(--orange); }
+
+  /* Charts row */
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+  }
+  .chart-box h3 { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+
+  /* Search */
+  .search-bar {
+    display: flex; gap: 8px; margin-bottom: 16px;
+  }
+  .search-bar input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 12px; color: var(--text);
+    font-family: inherit; font-size: 13px; outline: none;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-bar button {
+    background: var(--accent); color: #000; border: none;
+    border-radius: 6px; padding: 8px 16px; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .table-wrap h3 {
+    font-size: 13px; color: var(--muted); padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    text-align: left; padding: 8px 12px; color: var(--muted);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border); font-size: 10px;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: rgba(88, 166, 255, 0.04); }
+  tbody tr.fresh { animation: flashIn 1.5s ease-out; }
+  @keyframes flashIn {
+    0% { background: rgba(63, 185, 80, 0.15); }
+    100% { background: transparent; }
+  }
+  td { padding: 8px 12px; vertical-align: top; }
+  td.id { color: var(--muted); }
+  td.cmd { color: var(--accent); font-weight: 600; }
+  td.cat {
+    color: var(--orange); font-size: 11px;
+    background: rgba(210, 153, 34, 0.1); border-radius: 4px;
+    display: inline-block; padding: 2px 6px;
+  }
+  td.ctx { color: var(--muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.time { color: var(--muted); white-space: nowrap; font-size: 11px; }
+  .empty { text-align: center; padding: 32px; color: var(--muted); }
+
+  @media (max-width: 768px) {
+    .charts { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>MCP</span> Commands Dashboard</h1>
+  <div class="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">connecting...</span>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-label">Total Commands</div>
+    <div class="card-value accent" id="totalCount">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Today</div>
+    <div class="card-value green" id="todayCount">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Top Command</div>
+    <div class="card-value orange" id="topCommand">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Categories</div>
+    <div class="card-value" id="catCount">—</div>
+  </div>
+</div>
+
+<div class="charts">
+  <div class="chart-box">
+    <h3>Top Commands</h3>
+    <canvas id="cmdChart"></canvas>
+  </div>
+  <div class="chart-box">
+    <h3>Daily Trend (7 days)</h3>
+    <canvas id="dailyChart"></canvas>
+  </div>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="Search commands, categories, context..." />
+  <button onclick="doSearch()">Search</button>
+</div>
+
+<div class="table-wrap">
+  <h3 id="tableTitle">Recent Commands</h3>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Command</th><th>Category</th><th>Context</th><th>Time</th></tr>
+    </thead>
+    <tbody id="cmdTable"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+const API = '/api';
+let cmdChart, dailyChart;
+let knownIds = new Set();
+let isSearchMode = false;
+
+// ── Charts ──────────────────────────────────
+
+const chartDefaults = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' } },
+    y: { ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' }, beginAtZero: true }
+  }
+};
+
+function initCharts() {
+  cmdChart = new Chart(document.getElementById('cmdChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: '#58a6ff', borderRadius: 4, barThickness: 18 }] },
+    options: { ...chartDefaults, indexAxis: 'y' }
+  });
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      data: [], borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)',
+      fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#3fb950'
+    }] },
+    options: chartDefaults
+  });
+}
+
+// ── Data fetching ───────────────────────────
+
+async function fetchStats() {
+  try {
+    const res = await fetch(`${API}/stats?top_n=10`);
+    const data = await res.json();
+
+    document.getElementById('totalCount').textContent = data.total.toLocaleString();
+    document.getElementById('catCount').textContent = data.top_categories.length;
+    document.getElementById('topCommand').textContent = data.top_commands[0]?.command || '—';
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRow = data.last_7_days.find(d => d.day === today);
+    document.getElementById('todayCount').textContent = todayRow ? todayRow.count : '0';
+
+    // Update bar chart
+    cmdChart.data.labels = data.top_commands.map(c => c.command);
+    cmdChart.data.datasets[0].data = data.top_commands.map(c => c.count);
+    cmdChart.update('none');
+
+    // Update line chart
+    dailyChart.data.labels = data.last_7_days.map(d => d.day.slice(5));
+    dailyChart.data.datasets[0].data = data.last_7_days.map(d => d.count);
+    dailyChart.update('none');
+
+    setStatus(true);
+  } catch (e) {
+    setStatus(false);
+  }
+}
+
+async function fetchHistory() {
+  if (isSearchMode) return;
+  try {
+    const res = await fetch(`${API}/history?limit=50`);
+    const rows = await res.json();
+    renderTable(rows, false);
+  } catch (e) { /* silent */ }
+}
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) {
+    isSearchMode = false;
+    document.getElementById('tableTitle').textContent = 'Recent Commands';
+    fetchHistory();
+    return;
+  }
+  isSearchMode = true;
+  document.getElementById('tableTitle').textContent = `Search: "${q}"`;
+  try {
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}&limit=50`);
+    const rows = await res.json();
+    renderTable(rows, false);
+  } catch (e) { /* silent */ }
+}
+
+// ── Table rendering ─────────────────────────
+
+function renderTable(rows, markFresh) {
+  const tbody = document.getElementById('cmdTable');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No records</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const isFresh = markFresh && !knownIds.has(r.id);
+    const time = r.used_at ? new Date(r.used_at).toLocaleString() : '';
+    return `<tr class="${isFresh ? 'fresh' : ''}">
+      <td class="id">${r.id}</td>
+      <td class="cmd">${esc(r.command)}</td>
+      <td><span class="cat">${esc(r.category || '—')}</span></td>
+      <td class="ctx" title="${esc(r.context || '')}">${esc(r.context || '—')}</td>
+      <td class="time">${time}</td>
+    </tr>`;
+  }).join('');
+  rows.forEach(r => knownIds.add(r.id));
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ── SSE live stream ─────────────────────────
+
+function connectLive() {
+  const es = new EventSource(`${API}/live`);
+  es.onmessage = (event) => {
+    try {
+      const row = JSON.parse(event.data);
+      knownIds.add(row.id);
+      // Prepend to table
+      const tbody = document.getElementById('cmdTable');
+      const empty = tbody.querySelector('.empty');
+      if (empty) empty.parentElement.remove();
+      const time = row.used_at ? new Date(row.used_at).toLocaleString() : '';
+      const tr = document.createElement('tr');
+      tr.className = 'fresh';
+      tr.innerHTML = `
+        <td class="id">${row.id}</td>
+        <td class="cmd">${esc(row.command)}</td>
+        <td><span class="cat">${esc(row.category || '—')}</span></td>
+        <td class="ctx" title="${esc(row.context || '')}">${esc(row.context || '—')}</td>
+        <td class="time">${time}</td>`;
+      tbody.prepend(tr);
+      // Keep max 50 rows
+      while (tbody.children.length > 50) tbody.lastChild.remove();
+      // Refresh stats
+      fetchStats();
+    } catch (e) { /* ignore bad data */ }
+  };
+  es.onerror = () => {
+    setStatus(false);
+    es.close();
+    setTimeout(connectLive, 5000);
+  };
+}
+
+// ── Status indicator ────────────────────────
+
+function setStatus(ok) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  if (ok) { dot.className = 'status-dot'; txt.textContent = 'live'; }
+  else { dot.className = 'status-dot offline'; txt.textContent = 'offline'; }
+}
+
+// ── Search on Enter key ─────────────────────
+
+document.getElementById('searchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doSearch();
+});
+
+// ── Init ────────────────────────────────────
+
+initCharts();
+fetchStats();
+fetchHistory();
+connectLive();
+setInterval(fetchStats, 10000);
+setInterval(fetchHistory, 10000);
+</script>
+</body>
+</html>

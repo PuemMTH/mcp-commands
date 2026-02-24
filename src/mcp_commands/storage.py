@@ -155,7 +155,10 @@ def get_stats(top_n: int = 10) -> dict:
             ORDER BY day
             """
         )
-        daily = [dict(r) for r in cur.fetchall()]
+        daily = [
+            {"day": r["day"].isoformat() if hasattr(r["day"], "isoformat") else r["day"], "count": r["count"]}
+            for r in cur.fetchall()
+        ]
 
     conn.close()
     return {

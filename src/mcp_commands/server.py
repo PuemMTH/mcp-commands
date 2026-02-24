@@ -3,9 +3,12 @@ MCP Commands Server
 Tracks AI command usage via MCP tools.
 """
 
+import asyncio
 import json
 import os
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse, StreamingResponse
 from mcp_commands.storage import (
     log_command,
     get_history,
@@ -126,6 +129,63 @@ def delete_command_tool(row_id: int) -> str:
     if deleted:
         return f"🗑️ Deleted record id={row_id}"
     return f"⚠️ No record found with id={row_id}"
+
+
+# ─────────────────────────────────────────────
+# REST API (dashboard endpoints)
+# ─────────────────────────────────────────────
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    return JSONResponse({"status": "healthy", "service": "mcp-commands"})
+
+
+@mcp.custom_route("/api/stats", methods=["GET"])
+async def api_stats(request: Request) -> JSONResponse:
+    top_n = int(request.query_params.get("top_n", "10"))
+    stats = get_stats(top_n=top_n)
+    return JSONResponse(stats)
+
+
+@mcp.custom_route("/api/history", methods=["GET"])
+async def api_history(request: Request) -> JSONResponse:
+    limit = int(request.query_params.get("limit", "50"))
+    command = request.query_params.get("command", "") or None
+    category = request.query_params.get("category", "") or None
+    rows = get_history(limit=limit, command=command, category=category)
+    return JSONResponse(rows)
+
+
+@mcp.custom_route("/api/search", methods=["GET"])
+async def api_search(request: Request) -> JSONResponse:
+    query = request.query_params.get("q", "")
+    if not query:
+        return JSONResponse({"error": "q parameter required"}, status_code=400)
+    limit = int(request.query_params.get("limit", "20"))
+    rows = search_commands(query=query, limit=limit)
+    return JSONResponse(rows)
+
+
+@mcp.custom_route("/api/live", methods=["GET"])
+async def api_live(request: Request) -> StreamingResponse:
+    """SSE stream that pushes new commands every 2 seconds."""
+    async def event_stream():
+        last_id = 0
+        # Get initial max id
+        history = get_history(limit=1)
+        if history:
+            last_id = history[0].get("id", 0)
+
+        while True:
+            await asyncio.sleep(2)
+            new_rows = get_history(limit=20)
+            fresh = [r for r in new_rows if r.get("id", 0) > last_id]
+            if fresh:
+                last_id = max(r.get("id", 0) for r in fresh)
+                for row in reversed(fresh):
+                    yield f"data: {json.dumps(row, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 # ─────────────────────────────────────────────
